@@ -23,30 +23,46 @@
  */
 
 import { storiesOf } from '@storybook/react'
-
 import { renderExample } from './renderExample.js'
 import { renderPage } from './renderPage.js'
+import generateComponentExamples from './generateComponentExamples.js'
 import React from 'react'
+// must be imported with Webpack because this file cannot contain async calls
+import propJSONData from '../../prop-data.json'
 
 const examplesContext = require.context(
-  '../',
+  '../../../', // bug: This causes start:watch to recompile endlessly
   true,
   /^.*\/src\/.*\.examples\.js$/,
   'sync'
 )
 
-let numStories = 0
-// eslint-disable-next-line no-console
-console.log(
-  `Creating stories for ${examplesContext.keys().length} components...`
+const componentsContext = require.context(
+  '../../../', // bug: This causes start:watch to recompile endlessly
+  true,
+  /.*ui-.*\/src\/.*\/index\.js$/,
+  'sync'
 )
 
-examplesContext.keys().map((requirePath) => {
-  const ctx = examplesContext(requirePath)
+let numStories = 0
+// eslint-disable-next-line no-console
+console.log(`Creating stories for ${examplesContext.keys().length} components..`)
 
-  if (ctx.sections && ctx.sections.length > 0) {
-    const stories = storiesOf(ctx.componentName, module)
-    ctx.sections.forEach(({ pages, sectionName }) => {
+examplesContext.keys().map((requirePath) => {
+  const exampleDir = requirePath.split("/").slice(0,-2).join('/')
+  const Component = componentsContext(exampleDir + '/index.js').default
+  const ExamplesModule = examplesContext(requirePath).default // xy.example.js
+  const componentName = Component.displayName || Component.name
+  const generatedPropValues = propJSONData[componentName]
+  // merge in generated prop values:
+  ExamplesModule.propValues = Object.assign(generatedPropValues,ExamplesModule.propValues || {})
+  ExamplesModule.maxExamples = ExamplesModule.maxExamples ? ExamplesModule.maxExamples : 500
+
+  const sections = generateComponentExamples(Component, ExamplesModule)
+
+  if (sections && sections.length > 0) {
+    const stories = storiesOf(componentName, module)
+    sections.forEach(({ pages, sectionName }) => {
       pages.forEach((page, i) => {
         // eslint-disable-next-line no-param-reassign
         page.renderExample = renderExample
@@ -67,6 +83,5 @@ examplesContext.keys().map((requirePath) => {
     })
   }
 })
-
 // eslint-disable-next-line no-console
 console.log(`Created ${numStories} stories!`)
