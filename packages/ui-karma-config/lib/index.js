@@ -165,7 +165,6 @@ module.exports = function makeConfig({
         },
         resolveLoader: {
           alias: {
-            ...baseWebpackConfig.resolveLoader.alias,
             'ui-tests-loader': path.join(__dirname, './loaders/ui-tests-loader')
           }
         },
